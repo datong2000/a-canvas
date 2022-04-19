@@ -1,0 +1,24 @@
+{
+  "name": "a-canvas--ts",
+  "version": "1.0.0",
+  "description": "前身是tag-canvas,进行修改后的产物",
+  "main": "build/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsc --watch",
+    "start": "parcel ./example/index.html"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/datong2000/a-canvas--ts.git"
+  },
+  "author": "datong <2829099680@qq.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/datong2000/a-canvas--ts/issues"
+  },
+  "homepage": "https://github.com/datong2000/a-canvas--ts#readme",
+  "dependencies": {
+    "parcel": "^2.0.0-rc.0"
+  }
+}

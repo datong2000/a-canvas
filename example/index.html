@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>ACanvas example</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #eee;
+        }
+
+        .canvas_box {
+            display: flex;
+            height: 100vh;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #canvas {
+            --x: 280px;
+            --y: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle at var(--x) var(--y), #F4F6F7, #F1F0EC, #E2E2E0, #C8CCCC, #EAEBED, #9e9ca1);
+            box-shadow: 10px 20px 30px #9e9ca1;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="canvas_box">
+        <canvas width="800" height="800" id="canvas">升级下浏览器，或者换一个浏览器吧~</canvas>
+    </div>
+    <div class="a-list" id="a-list" style="display: none;">
+        <a href="#" style="color: #564b53;" target="blank">许然</a>
+        <a href="#" style="color: #564b53;" target="blank">许然</a>
+        <a href="#" style="color: #564b53;" target="blank">许然</a>
+        <a href="#" style="color: red;">许然好漂亮啊</a>
+        <a href="#" style="color: red;">许然好漂亮啊</a>
+        <a href="#" style="color: red;">许然好漂亮啊</a>
+        <a href="#" style="color: green;">许然酷盖</a>
+        <a href="#" style="color: green;">许然酷盖</a>
+        <a href="#" style="color: green;">许然酷盖</a>
+        <a href="#" style="color: #aaa;">许然身材好好啊</a>
+        <a href="#" style="color: #aaa;">许然身材好好啊</a>
+        <a href="#" style="color: #aaa;">许然身材好好啊</a>
+        <a href="#" id="a1" onclick="active('a1')">许然真可爱啊</a>
+        <a href="#" id="a2" onclick="active('a2')">许然真可爱啊</a>
+        <a href="#" id="a3" onclick="active('a3')">许然真可爱啊</a>
+    </div>
+    <script type="module">
+        import ACanvas from '../src/index'
+        window.onload = () => {
+            ACanvas.start('canvas', '.a-list', {
+                textColour: null,
+                dragControl: true,
+                shape: 'sphere',
+                initial: [0.1, 0.1]
+            });
+        }
+        window.active = (id) => {
+            ACanvas.tagToFront('canvas', {
+                id,
+                time: 500,
+                callback: (e, v) => {
+                    ACanvas.setSpeed(e.canvas.id, e.initial)
+                },
+                active: false
+            })
+        }
+    </script>
+</body>
+
+</html>
