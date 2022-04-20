@@ -2,6 +2,18 @@
 
 ---
 
+### 下载 & 引用
+
+```javascript
+
+  npm i a-canvas--ts
+  
+  import ACanvas from 'ACanvas'
+
+  ACanvas.start('xx','xx','xx')
+
+```
+
 ### 说明
 
 > 前身是 tag-canvas，很不错的一个转canvas3D圆形工具，但是相关文档几乎已经没有，所以自己重构了一下并补全文档，修改了一些已经弃用的语法和删除一些功能
@@ -63,11 +75,11 @@
 > 以下函数均以此块标签模板为例
 
 ```html
-    <canvas id="canvas"></canvas>
-    <div class="a-list" id="a-list">
-        <a id="a1">a1标签</a>
-        <a id="a2">a2标签</a>
-    </div>
+  <canvas id="canvas"></canvas>
+  <div class="a-list" id="a-list">
+      <a id="a1">a1标签</a>
+      <a id="a2">a2标签</a>
+  </div>
 ```
 
 ##### start() 初始画布
@@ -80,8 +92,8 @@
   + 元素列表ID / Class 
 
 ```javascript
-    // 第二个参数 .a-list #a-list 都可以
-    start('canvas','.a-list',{option...})
+  // 第二个参数 .a-list #a-list 都可以
+  start('canvas','.a-list',{option...})
 ```
 
 ##### tagToFront() 元素置于中心点
@@ -98,11 +110,11 @@
   + 执行动画的时间
 
 ```javascript
-    tagToFront('canvas',{
-        id:"a1",
-        time: 500,
-        callback: (c, a) => {}
-    })
+  tagToFront('canvas',{
+      id:"a1",
+      time: 500,
+      callback: (c, a) => {}
+  })
 ```
 
 ##### rotateTag() 元素置于自定义位置
@@ -123,13 +135,13 @@
   + 元素移动到 Y 轴某处
   
 ```javascript
-    rotateTag('canvas',{
-        id:"a1",
-        time: 500,
-        lat: 10, 
-        lng: 10,
-        callback: (c, a) => {}
-    })
+  rotateTag('canvas',{
+      id:"a1",
+      time: 500,
+      lat: 10, 
+      lng: 10,
+      callback: (c, a) => {}
+  })
 ```
 
 ##### setDirection() 画布朝向旋转
@@ -140,7 +152,7 @@
   + x 轴从 0 到 0.1，Y 轴从 0 到 0.1，所以是向右上方缓慢行驶
 
 ```javascript
-    setDirection('canvas',[0.1,0.1])
+  setDirection('canvas',[0.1,0.1])
 ```
 
 ##### updata() 更新元素数据 (暂以reload为代替)
@@ -148,7 +160,7 @@
 > 类型：**Function** `updata(string)`
 
 ```javascript
-    updata('canvas')
+  updata('canvas')
 ```
 
 ##### reload() 更新画布
@@ -156,7 +168,7 @@
 > 类型：**Function** `reload(string)`
 
 ```javascript
-    reload('canvas')
+  reload('canvas')
 ```
 
 ##### delete() 清除画布
@@ -164,5 +176,5 @@
 > 类型：**Function** `delete(string)`
 
 ```javascript
-    delete('canvas')
+  delete('canvas')
 ```
