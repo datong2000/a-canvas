@@ -8,11 +8,11 @@ export default class Outline {
     h;
     sc;
     z;
-    tag;
+    a;
     constructor(ac) {
         this.ac = ac;
         this.ts = null;
-        this.tag = undefined;
+        this.a = undefined;
         this.x = this.y = this.w = this.h = this.sc = 1;
         this.z = 0;
     }

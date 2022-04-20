@@ -1,6 +1,6 @@
 import A from '../a'
-import ACanvas from '../a-canvas'
-import { Defined, AbsPos } from './fn'
+import ACanvas, { EventType } from '../a-canvas'
+import { Defined, AbsPos, TimeNow } from './fn'
 
 type EX = {
     min: {
@@ -64,10 +64,6 @@ export function FindTextBoundingBox(s: string[], ht: number): EX {
     return ex;
 }
 
-export function FixFont(fontFamily: string) {
-    return "'" + fontFamily.replace(/(\'|\")/g, '').replace(/\s*,\s*/g, "', '") + "'";
-}
-
 export function Clamp(v: number, mn: number, mx: number) {
     return isNaN(v) ? mx : min(mx, max(mn, v));
 }
@@ -111,6 +107,12 @@ export function NewCanvas(w: number, h: number): HTMLCanvasElement {
     return c;
 }
 
+export function drawCanvasRAF(time: number) {
+    let ac = ACanvas.ac;
+    ACanvas.nextFrame(ACanvas.options.interval);
+    for (let i in ac) ac[i].Draw(time || TimeNow());
+}
+
 export function EventToCanvasId(e: MouseEvent | TouchEvent) {
     if (e.target instanceof HTMLCanvasElement) {
         return e.target.id
@@ -128,17 +130,17 @@ export function Shuffle(a: number[]) {
     }
 }
 
-export function AddHandler(h: string, f: EventListener, e?: HTMLElement | Document) {
+export function AddHandler(h: string, f: EventType, e?: HTMLElement | Document) {
     e = e || document;
-    if (e.addEventListener) e.addEventListener(h, f, { passive: false });
+    if (e.addEventListener) e.addEventListener(h, f as EventListener, { passive: false });
 }
 
-export function RemoveHandler(h: string, f: EventListener, e?: HTMLElement | Document) {
+export function RemoveHandler(h: string, f: EventType, e?: HTMLElement | Document) {
     e = e || document;
     if (e.removeEventListener)
-        e.removeEventListener(h, f);
+        e.removeEventListener(h, f as EventListener);
 }
 
-export function tccall(f: string, id: string) {
+export function acCall(f: string, id: string) {
     ACanvas.ac[id] && ACanvas.ac[id][f]();
 }

@@ -30,42 +30,40 @@
     <div class="canvas_box">
         <canvas width="800" height="800" id="canvas">升级下浏览器，或者换一个浏览器吧~</canvas>
     </div>
-    <div class="a-list" id="a-list" style="display: none;">
-        <a href="#" style="color: #564b53;" target="blank">许然</a>
-        <a href="#" style="color: #564b53;" target="blank">许然</a>
-        <a href="#" style="color: #564b53;" target="blank">许然</a>
-        <a href="#" style="color: red;">许然好漂亮啊</a>
-        <a href="#" style="color: red;">许然好漂亮啊</a>
-        <a href="#" style="color: red;">许然好漂亮啊</a>
-        <a href="#" style="color: green;">许然酷盖</a>
-        <a href="#" style="color: green;">许然酷盖</a>
-        <a href="#" style="color: green;">许然酷盖</a>
-        <a href="#" style="color: #aaa;">许然身材好好啊</a>
-        <a href="#" style="color: #aaa;">许然身材好好啊</a>
-        <a href="#" style="color: #aaa;">许然身材好好啊</a>
-        <a href="#" id="a1" onclick="active('a1')">许然真可爱啊</a>
-        <a href="#" id="a2" onclick="active('a2')">许然真可爱啊</a>
-        <a href="#" id="a3" onclick="active('a3')">许然真可爱啊</a>
+    <div class="a-list" id="a-list">
+        <a href="#" id="a1" onclick="active('a1')" style="color: #564b53;" target="blank">许然</a>
+        <a href="#" id="a2" onclick="active('a2')" style="color: #80311D;">许然好漂亮</a>
+        <a href="#" id="a3" onclick="active('a3')" style="color: #C5967B;">许然酷盖</a>
+        <a href="#" id="a4" onclick="active('a4')" style="color: #A39703;">许然身材好好</a>
+        <a href="#" id="a5" onclick="active('a5')" style="color: #D87023;">许然真可爱</a>
+        <a href="#" id="a6" onclick="active('a6')" style="color: #99AFC6;">粘人的许然</a>
+        <a href="#" id="a7" onclick="active('a7')" style="color: #293017;">爱笑的许然</a>
+        <a href="#" id="a8" onclick="active('a8')" style="color: #71004D;">可爱的许然</a>
+        <a href="#" id="a9" onclick="active('a9')" style="color: #922016;">话多的许然</a>
+        <a href="#" id="a10" onclick="active('a10')" style="color: #223449;">骂人的许然</a>
     </div>
     <script type="module">
         import ACanvas from '../src/index'
         window.onload = () => {
+            let initial = [0.1, 0.1]
+
             ACanvas.start('canvas', '.a-list', {
                 textColour: null,
+                textFontStyle: "normal bold",
                 dragControl: true,
                 shape: 'sphere',
-                initial: [0.1, 0.1]
+                initial
             });
-        }
-        window.active = (id) => {
-            ACanvas.tagToFront('canvas', {
-                id,
-                time: 500,
-                callback: (e, v) => {
-                    ACanvas.setSpeed(e.canvas.id, e.initial)
-                },
-                active: false
-            })
+
+            window.active = (id) => {
+                ACanvas.tagToFront('canvas', {
+                    id,
+                    time: 500,
+                    callback: (e, v) => {
+                        ACanvas.setDirection(e.canvas.id, initial)
+                    }
+                })
+            }
         }
     </script>
 </body>

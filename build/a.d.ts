@@ -26,7 +26,6 @@ export default class A {
     y: number;
     z: number;
     colour: string;
-    textFont: string;
     sc: number;
     alpha: number;
     outline: Outline;
@@ -39,7 +38,6 @@ export default class A {
     MeasureText(c: CanvasRenderingContext2D): number;
     SetDraw(): void;
     DrawText(v: DrawText): void;
-    SetFont(f: string, c: string): void;
     Calc(m: Matrix, a: number): XYZ;
     project(ac: ACanvas, p1: XYZ, sx: number, sy: number): XYZ;
     UpdateActive(xoff: number, yoff: number): Outline;

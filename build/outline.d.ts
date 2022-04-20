@@ -20,7 +20,7 @@ export default class Outline {
     h: number;
     sc: number;
     z: number;
-    tag: A;
+    a: A;
     constructor(ac: object);
     Update(v: Update<number>): void;
     Active(x: number, y: number): boolean;

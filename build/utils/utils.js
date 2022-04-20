@@ -1,5 +1,5 @@
 import ACanvas from '../a-canvas';
-import { Defined, AbsPos } from './fn';
+import { Defined, AbsPos, TimeNow } from './fn';
 let { min, max } = Math;
 export function FindTextBoundingBox(s, ht) {
     let w = parseInt((s.length * ht).toString()), h = parseInt((s.length * ht).toString()), cv = NewCanvas(w, h), c, data, data_width, data_height, x, y, i, ex;
@@ -41,9 +41,6 @@ export function FindTextBoundingBox(s, ht) {
     cv = null;
     return ex;
 }
-export function FixFont(fontFamily) {
-    return "'" + fontFamily.replace(/(\'|\")/g, '').replace(/\s*,\s*/g, "', '") + "'";
-}
 export function Clamp(v, mn, mx) {
     return isNaN(v) ? mx : min(mx, max(mn, v));
 }
@@ -80,6 +77,12 @@ export function NewCanvas(w, h) {
     c.height = h;
     return c;
 }
+export function drawCanvasRAF(time) {
+    let ac = ACanvas.ac;
+    ACanvas.nextFrame(ACanvas.options.interval);
+    for (let i in ac)
+        ac[i].Draw(time || TimeNow());
+}
 export function EventToCanvasId(e) {
     if (e.target instanceof HTMLCanvasElement) {
         return e.target.id;
@@ -105,6 +108,6 @@ export function RemoveHandler(h, f, e) {
     if (e.removeEventListener)
         e.removeEventListener(h, f);
 }
-export function tccall(f, id) {
+export function acCall(f, id) {
     ACanvas.ac[id] && ACanvas.ac[id][f]();
 }

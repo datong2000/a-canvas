@@ -1,13 +1,13 @@
-import { FixFont, Clamp, GetProperty, SortList, EventXY, AddHandler, RemoveHandler, Shuffle, tccall } from './utils/utils';
+import { Clamp, GetProperty, SortList, EventXY, AddHandler, RemoveHandler, Shuffle, acCall, drawCanvasRAF } from './utils/utils';
 import { Defined, TimeNow, Nop, IsObject } from './utils/fn';
 import { MouseOut, MouseMove, MouseDown, MouseUp, TouchDown, TouchUp, TouchMove, MouseWheel } from './utils/event';
 import { PointsOnSphere, PointsOnCylinderV, PointsOnCylinderH, PointsOnRingV, PointsOnRingH } from './utils/direction';
 import { option } from './utils/init';
 import Matrix, { Identity, Rotation } from './Matrix';
 import TextSplitter from './text-splitter';
-import Tag from './a';
+import A from './a';
 import Vector, { MakeVector } from './vector';
-let { min, max, cos, sqrt, sin, ceil, abs, pow } = Math;
+let { min, max, cos, sqrt, sin, abs, pow } = Math;
 export default class ACanvas {
     offsetX;
     offsetY;
@@ -18,8 +18,9 @@ export default class ACanvas {
     wheelZoom;
     dragThreshold;
     textColour;
-    textFont;
+    textFontStyle;
     textHeight;
+    textFontFamily;
     minBrightness;
     maxBrightness;
     stretchX;
@@ -29,7 +30,7 @@ export default class ACanvas {
     z0;
     lock;
     dragControl;
-    hideTags;
+    hideElement;
     interval;
     reverse;
     maxSpeed;
@@ -63,7 +64,7 @@ export default class ACanvas {
     yaw;
     pitch;
     shapeArgs;
-    taglist;
+    aList;
     listLength;
     freezeDecel;
     freezeActive;
@@ -81,12 +82,10 @@ export default class ACanvas {
     static ac = {};
     static handlers = {};
     static options = option;
-    static interval;
     static nextFrame = null;
-    static start(id, tagId, opt) {
+    static start(id, AElement, opt) {
         ACanvas.delete(id);
-        ACanvas.ac[id] = new ACanvas({ id, tagId, opt });
-        console.log(ACanvas.handlers);
+        ACanvas.ac[id] = new ACanvas({ id, AElement, opt });
     }
     static delete(id) {
         if (ACanvas.handlers[id] != undefined) {
@@ -99,11 +98,11 @@ export default class ACanvas {
             delete ACanvas.ac[id];
         }
     }
-    static reload(id) { tccall('Load', id); }
+    static reload(id) { acCall('Load', id); }
     ;
-    static update(id) { tccall('Update', id); }
+    static updata(id) { acCall('Updata', id); }
     ;
-    static setSpeed(id, speed) {
+    static setDirection(id, speed) {
         if (IsObject(speed) && ACanvas.ac[id] &&
             !isNaN(speed[0]) && !isNaN(speed[1])) {
             ACanvas.ac[id].SetSpeed(speed);
@@ -121,29 +120,19 @@ export default class ACanvas {
         if (IsObject(options) && ACanvas.ac[id]) {
             if (isNaN(options.time))
                 options.time = 500;
-            let tag = ACanvas.ac[id].FindTag(options);
-            let { lat, lng, time, callback, active } = options;
-            if (tag) {
-                ACanvas.ac[id].RotateTag({ tag, lat, lng, time, callback, active });
+            let a = ACanvas.ac[id].FindTag(options);
+            let { lat, lng, time, callback } = options;
+            if (a) {
+                ACanvas.ac[id].RotateTag({ a, lat, lng, time, callback });
                 return true;
             }
         }
         return false;
     }
-    static drawCanvasRAF(time) {
-        let ac = ACanvas.ac;
-        ACanvas.nextFrame(ACanvas.interval);
-        for (let i in ac)
-            ac[i].Draw(time || TimeNow());
-    }
-    NextFrameRAF() {
-        requestAnimationFrame(ACanvas.drawCanvasRAF);
-    }
     constructor(v) {
-        for (let i in ACanvas.options) {
+        for (let i in ACanvas.options)
             this[i] = (v.opt && Defined(v.opt[i]) ? v.opt[i] :
                 (Defined(ACanvas[i]) ? ACanvas[i] : ACanvas.options[i]));
-        }
         let c = document.getElementById(v.id);
         if (!c || !c.getContext || !c.getContext('2d').fillText)
             throw '请使用正确的canvas元素';
@@ -155,22 +144,21 @@ export default class ACanvas {
         this.z2 = this.z1 / this.zoom;
         this.radius = min(c.clientHeight, c.clientWidth) * 0.0075;
         this.max_radius = 100;
-        this.textFont = this.textFont && FixFont(this.textFont);
         this.mx = this.my = -1;
         this.minBrightness = Clamp(this.minBrightness, 0, 1);
         this.maxBrightness = Clamp(this.maxBrightness, this.minBrightness, 1);
         this.lx = (this.lock + '').indexOf('x') + 1;
         this.ly = (this.lock + '').indexOf('y') + 1;
-        this.fixedAnim = { tag: null };
+        this.fixedAnim = { a: null };
         this.frozen = this.dx = this.dy = this.fixedAnim.type = this.touchState = 0;
         this.fixedAlpha = 1;
-        this.source = v.tagId || v.id;
+        this.source = v.AElement || v.id;
         this.transform = Identity();
         this.mx = this.my = -1;
         this.Animate = this.dragControl ? this.AnimateDrag : this.AnimatePosition;
         this.animTiming = this.Smooth;
         this.Load();
-        if (v.tagId && this.hideTags) {
+        if (v.AElement && this.hideElement) {
             this.HideTags();
         }
         this.yaw = this.initial ? this.initial[0] * this.maxSpeed : 0;
@@ -200,8 +188,7 @@ export default class ACanvas {
         }
         if (!this.started) {
             ACanvas.nextFrame = this.NextFrameRAF;
-            ACanvas.interval = this.interval;
-            ACanvas.nextFrame(ACanvas.interval);
+            ACanvas.nextFrame(this.interval);
             this.started = 1;
         }
     }
@@ -225,13 +212,13 @@ export default class ACanvas {
         ts = new TextSplitter(a);
         text = ts.Lines(a);
         if (!ts.Empty()) {
-            font = this.textFont || FixFont(GetProperty(a, 'font-family'));
+            font = GetProperty(a, 'font') == `16px "Microsoft YaHei"` ? `${this.textFontStyle} ${this.textHeight}px ${this.textFontFamily}` : GetProperty(a, 'font');
         }
         else {
             ts = null;
         }
         if (ts) {
-            t = new Tag({
+            t = new A({
                 ac: this, text, a, v: p, w: 2, h: this.textHeight,
                 col: this.textColour || GetProperty(a, 'color'), font
             });
@@ -240,7 +227,7 @@ export default class ACanvas {
         }
     }
     Draw(t) {
-        let cv = this.canvas, cw = cv.width, ch = cv.height, max_sc = 0, tdelta = (t - this.time) * ACanvas.interval / 1000, x = cw / 2 + this.offsetX, y = ch / 2 + this.offsetY, c = this.ctxt, active, a, i, tl = this.taglist, l = tl.length, cursor = '', frontsel = this.frontSelect, fixed;
+        let cv = this.canvas, cw = cv.width, ch = cv.height, max_sc = 0, tdelta = (t - this.time) * this.interval / 1000, x = cw / 2 + this.offsetX, y = ch / 2 + this.offsetY, c = this.ctxt, active, a, i, tl = this.aList, l = tl.length, cursor = '', frontsel = this.frontSelect, fixed;
         this.time = t;
         if (this.frozen && this.drawn)
             return this.Animate(cw, ch, tdelta);
@@ -250,27 +237,22 @@ export default class ACanvas {
             tl[i].Calc(this.transform, this.fixedAlpha);
         }
         tl = SortList(tl, function (a, b) { return b.z - a.z; });
-        if (fixed && this.fixedAnim.active) {
-            active = this.fixedAnim.tag.UpdateActive(x, y);
-        }
-        else {
-            this.active = null;
-            for (i = 0; i < l; ++i) {
-                a = this.mx >= 0 && this.my >= 0 && this.taglist[i].CheckActive(x, y);
-                if (a && a.sc > max_sc && (!frontsel || a.z <= 0)) {
-                    active = a;
-                    active.tag = this.taglist[i];
-                    max_sc = a.sc;
-                }
+        this.active = null;
+        for (i = 0; i < l; ++i) {
+            a = this.mx >= 0 && this.my >= 0 && this.aList[i].CheckActive(x, y);
+            if (a && a.sc > max_sc && (frontsel || a.z <= 0)) {
+                active = a;
+                active.a = this.aList[i];
+                max_sc = a.sc;
             }
-            this.active = active;
         }
+        this.active = active;
         c.clearRect(0, 0, cw, ch);
         for (i = 0; i < l; ++i) {
             if (!(false)) {
                 tl[i].Draw({ c, xoff: x, yoff: y });
             }
-            active && active.tag == tl[i] && false;
+            active && active.a == tl[i] && false;
         }
         if (this.freezeActive && active) {
             this.Freeze();
@@ -303,7 +285,7 @@ export default class ACanvas {
             t1 = TimeNow() - this.fixedAnim.t0;
             this.transform = this.fixedAnim.transform;
             if (t1 >= this.fixedAnim.t) {
-                this.fixedCallbackTag = this.fixedAnim.tag;
+                this.fixedCallbackTag = this.fixedAnim.a;
                 this.fixedCallback = this.fixedAnim.cb;
                 this.fixedAnim.type = this.yaw = this.pitch = 0;
             }
@@ -371,8 +353,8 @@ export default class ACanvas {
         this.drawn = 0;
     }
     Clicked() {
-        if (this.active && this.active.tag)
-            this.active.tag.Clicked();
+        if (this.active && this.active.a)
+            this.active.a.Clicked();
     }
     Wheel(i) {
         let z = this.zoom + this.zoomStep * (i ? 1 : -1);
@@ -432,14 +414,14 @@ export default class ACanvas {
         let srch, tid, i;
         if (Defined(t.id))
             srch = 'id', tid = t.id;
-        for (i = 0; i < this.taglist.length; ++i)
-            if (this.taglist[i].v.a[srch] == tid)
-                return this.taglist[i];
+        for (i = 0; i < this.aList.length; ++i)
+            if (this.aList[i].v.a[srch] == tid)
+                return this.aList[i];
     }
-    RotateTag({ tag, lat, lng, time, callback, active }) {
-        let t = tag.Calc(this.transform, 1), v1 = new Vector({ x: t.x, y: t.y, z: t.z }), v2 = MakeVector(lng, lat), angle = v1.angle(v2), u = v1.cross(v2).unit();
+    RotateTag({ a, lat, lng, time, callback }) {
+        let t = a.Calc(this.transform, 1), v1 = new Vector({ x: t.x, y: t.y, z: t.z }), v2 = MakeVector(lat, lng), angle = v1.angle(v2), u = v1.cross(v2).unit();
         if (angle == 0) {
-            this.fixedCallbackTag = tag;
+            this.fixedCallbackTag = a;
             this.fixedCallback = callback;
         }
         else {
@@ -449,14 +431,13 @@ export default class ACanvas {
                 t: time,
                 t0: TimeNow(),
                 cb: callback,
-                tag: tag,
-                active: active,
+                a: a,
                 type: 1
             };
         }
     }
     Load() {
-        let tl = this.GetTags(), taglist = [], shape, t, shapeArgs, xr, yr, zr, vl, i, tagmap = [], pfuncs = {
+        let tl = this.GetTags(), aList = [], shape, t, shapeArgs, xr, yr, zr, vl, i, tagmap = [], pfuncs = {
             sphere: PointsOnSphere,
             vcylinder: PointsOnCylinderV,
             hcylinder: PointsOnCylinderH,
@@ -475,60 +456,35 @@ export default class ACanvas {
             for (i = 0; i < tl.length; ++i) {
                 t = this.CreateTag(tl[tagmap[i]]);
                 if (t)
-                    taglist.push(t);
+                    aList.push(t);
             }
             if (this.shapeArgs.n) {
-                this.shapeArgs.n = taglist.length;
+                this.shapeArgs.n = aList.length;
             }
             else {
                 shapeArgs = this.shape.toString().split(/[(),]/);
                 shape = shapeArgs.shift();
                 this.shape = pfuncs[shape] || pfuncs.sphere;
                 this.shapeArgs = {
-                    n: taglist.length,
+                    n: aList.length,
                     xr,
                     yr,
-                    zr,
-                    m: shape
+                    zr
                 };
             }
             if (typeof this.shape != 'string')
                 vl = this.shape({ ...this.shapeArgs });
-            this.listLength = taglist.length;
-            for (i = 0; i < taglist.length; ++i)
-                taglist[i].position = new Vector({ x: vl[i][0], y: vl[i][1], z: vl[i][2] });
+            this.listLength = aList.length;
+            for (i = 0; i < aList.length; ++i)
+                aList[i].position = new Vector({ x: vl[i][0], y: vl[i][1], z: vl[i][2] });
         }
-        this.taglist = taglist;
+        this.aList = aList;
     }
-    Update() {
-        let tl = this.GetTags(), newlist = [], taglist = this.taglist, added = [], removed = [], vl, ol, nl, i, j;
-        if (!this.shapeArgs)
-            return this.Load();
-        if (tl.length) {
-            nl = this.listLength = tl.length;
-            ol = taglist.length;
-            for (i = 0; i < ol; ++i) {
-                newlist.push(taglist[i]);
-                removed.push(i);
-            }
-            for (i = 0, j = 0; i < ol; ++i) {
-                if (removed[j] == -1)
-                    removed.splice(j, 1);
-                else
-                    ++j;
-            }
-            j = newlist.length / (added.length + 1);
-            i = 0;
-            while (added.length) {
-                newlist.splice(ceil(++i * j), 0, this.CreateTag(tl[added.shift()]));
-            }
-            this.shapeArgs[0] = nl = newlist.length;
-            if (typeof this.shape != 'string')
-                vl = this.shape.apply(this, this.shapeArgs);
-            for (i = 0; i < nl; ++i)
-                newlist[i].position = new Vector({ x: vl[i][0], y: vl[i][1], z: vl[i][2] });
-        }
-        this.taglist = newlist;
+    Updata() {
+        this.Load();
+    }
+    NextFrameRAF() {
+        requestAnimationFrame(drawCanvasRAF);
     }
     Smooth(t, t0) { return 0.5 - cos(t0 * Math.PI / t) / 2; }
 }

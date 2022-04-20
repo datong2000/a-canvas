@@ -2,28 +2,26 @@ import { XY } from './utils/utils';
 import { WheelEvent } from './utils/event';
 import { RingType } from './utils/direction';
 import Matrix from './Matrix';
-import Tag from './a';
+import A from './a';
 import Vector from './vector';
 import Outline from './outline';
-interface TagCanvasType {
+interface ACanvasType {
     id: string;
-    tagId: string;
+    AElement: string;
     opt: object;
 }
 interface RotateTagType {
-    active: boolean;
-    callback: (ACanvas?: ACanvas, Tag?: Tag) => void;
+    callback?: (ACanvas?: ACanvas, A?: A) => void;
     id?: string;
-    tag?: Tag;
+    a?: A;
     lat?: number;
     lng?: number;
     time: number;
 }
 interface fixedAnimType {
-    tag: Tag;
+    a: A;
     t?: number;
-    cb?: (ACanvas?: ACanvas, Tag?: Tag) => void;
-    active?: boolean;
+    cb?: (ACanvas?: ACanvas, A?: A) => void;
     angle?: number;
     axis?: Vector;
     t0?: number;
@@ -31,27 +29,27 @@ interface fixedAnimType {
     type?: number;
 }
 interface NewableFunction extends Function {
-    sphere?: ({ n, xr, yr, zr, m }: RingType) => number[][];
-    vcylinder?: ({ n, xr, yr, zr, m }: RingType) => number[][];
-    hcylinder?: ({ n, xr, yr, zr, m }: RingType) => number[][];
-    vring?: ({ n, xr, yr, zr, j }: RingType) => number[][];
-    hring?: ({ n, xr, yr, zr, j }: RingType) => number[][];
+    sphere?: ({ n, xr, yr, zr }: RingType) => number[][];
+    vcylinder?: ({ n, xr, yr, zr }: RingType) => number[][];
+    hcylinder?: ({ n, xr, yr, zr }: RingType) => number[][];
+    vring?: ({ n, xr, yr, zr }: RingType) => number[][];
+    hring?: ({ n, xr, yr, zr }: RingType) => number[][];
 }
-declare type HandleMouseEvent = (e: MouseEvent) => void;
-declare type HandleTouchEvent = (e: TouchEvent) => void;
-declare type HandleWheelEvent = (e: WheelEvent) => void;
+export declare type EventType = (e: MouseEvent & TouchEvent & WheelEvent & Event) => void;
+declare type HandleEvents = [string, EventType];
 export default class ACanvas {
     offsetX: number;
     offsetY: number;
     zoomMin: number;
     zoomMax: number;
-    frontSelect: string;
+    frontSelect: boolean;
     zoomStep: number;
     wheelZoom: boolean;
     dragThreshold: number;
     textColour: string;
-    textFont: string;
+    textFontStyle: string;
     textHeight: number;
+    textFontFamily: string;
     minBrightness: number;
     maxBrightness: number;
     stretchX: number;
@@ -61,7 +59,7 @@ export default class ACanvas {
     z0: number;
     lock: string;
     dragControl: boolean;
-    hideTags: boolean;
+    hideElement: boolean;
     interval: number;
     reverse: boolean;
     maxSpeed: number;
@@ -95,14 +93,14 @@ export default class ACanvas {
     yaw: number;
     pitch: number;
     shapeArgs: RingType;
-    taglist: Tag[];
+    aList: A[];
     listLength: number;
     freezeDecel: boolean;
     freezeActive: boolean;
     activeCursor: string;
     decel: number;
-    fixedCallbackTag: Tag;
-    fixedCallback: (ACanvas?: ACanvas, Tag?: Tag) => void | null;
+    fixedCallbackTag: A;
+    fixedCallback: (ACanvas?: ACanvas, A?: A) => void | null;
     preFreeze: number[];
     drawn: number | boolean;
     active: Outline | null;
@@ -114,7 +112,7 @@ export default class ACanvas {
         [key: string]: ACanvas;
     };
     static handlers: {
-        [key: string]: Array<[string, HandleMouseEvent | HandleTouchEvent | HandleWheelEvent]>;
+        [key: string]: Array<HandleEvents>;
     };
     static options: {
         z1: number;
@@ -123,19 +121,15 @@ export default class ACanvas {
         freezeActive: boolean;
         freezeDecel: boolean;
         activeCursor: string;
-        reverse: boolean;
-        depth: number;
-        maxSpeed: number;
-        minSpeed: number;
-        decel: number;
         interval: number;
         minBrightness: number;
         maxBrightness: number;
         textColour: string;
+        textFontStyle: string;
         textHeight: number;
-        textFont: string;
+        textFontFamily: string;
         initial: any;
-        hideTags: boolean;
+        hideElement: boolean;
         frontSelect: boolean;
         zoom: number;
         wheelZoom: boolean;
@@ -153,22 +147,24 @@ export default class ACanvas {
         offsetY: number;
         dragControl: boolean;
         dragThreshold: number;
+        reverse: boolean;
+        depth: number;
+        maxSpeed: number;
+        minSpeed: number;
+        decel: number;
     };
-    static interval: number;
     static nextFrame: (interval: number) => void;
-    static start(id: TagCanvasType['id'], tagId: TagCanvasType['tagId'], opt: TagCanvasType['opt']): void;
+    static start(id: ACanvasType['id'], AElement: ACanvasType['AElement'], opt: ACanvasType['opt']): void;
     static delete(id: string): void;
     static reload(id: string): void;
-    static update(id: string): void;
-    static setSpeed(id: string, speed: number[]): boolean;
+    static updata(id: string): void;
+    static setDirection(id: string, speed: number[]): boolean;
     static tagToFront(id: string, options: RotateTagType): boolean;
     static rotateTag(id: string, options: RotateTagType): boolean;
-    static drawCanvasRAF(time: number): void;
-    NextFrameRAF(): void;
-    constructor(v: TagCanvasType);
+    constructor(v: ACanvasType);
     HideTags(): void;
     GetTags(): Element[];
-    CreateTag(a: HTMLAnchorElement): Tag;
+    CreateTag(a: HTMLAnchorElement): A;
     Draw(t?: number): void;
     Transform(p: number, y: number): void;
     AnimateFixed(): boolean;
@@ -188,10 +184,11 @@ export default class ACanvas {
     Pinch(e: TouchEvent): void;
     EndPinch(): void;
     SetSpeed(i: number[]): void;
-    FindTag(t: RotateTagType): Tag;
-    RotateTag({ tag, lat, lng, time, callback, active }: RotateTagType): void;
+    FindTag(t: RotateTagType): A;
+    RotateTag({ a, lat, lng, time, callback }: RotateTagType): void;
     Load(): void;
-    Update(): void;
+    Updata(): void;
+    NextFrameRAF(): void;
     Smooth(t: number, t0: number): number;
 }
 export {};

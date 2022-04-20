@@ -1,35 +1,33 @@
-import { FixFont, Clamp, GetProperty, SortList, EventXY, XY, AddHandler, RemoveHandler, Shuffle, tccall } from './utils/utils'
+import { Clamp, GetProperty, SortList, EventXY, XY, AddHandler, RemoveHandler, Shuffle, acCall, drawCanvasRAF } from './utils/utils'
 import { Defined, TimeNow, Nop, IsObject } from './utils/fn'
 import { MouseOut, MouseMove, MouseDown, MouseUp, TouchDown, TouchUp, TouchMove, MouseWheel, WheelEvent } from './utils/event'
 import { RingType, PointsOnSphere, PointsOnCylinderV, PointsOnCylinderH, PointsOnRingV, PointsOnRingH } from './utils/direction'
 import { option } from './utils/init'
 import Matrix, { Identity, Rotation } from './Matrix'
 import TextSplitter from './text-splitter'
-import Tag from './a'
+import A from './a'
 import Vector, { MakeVector } from './vector'
 import Outline from './outline'
 
-interface TagCanvasType {
+interface ACanvasType {
     id: string
-    tagId: string
+    AElement: string
     opt: object
 }
 
 interface RotateTagType {
-    active: boolean
-    callback: (ACanvas?: ACanvas, Tag?: Tag) => void
+    callback?: (ACanvas?: ACanvas, A?: A) => void
     id?: string
-    tag?: Tag
+    a?: A
     lat?: number
     lng?: number
     time: number
 }
 
 interface fixedAnimType {
-    tag: Tag
+    a: A
     t?: number
-    cb?: (ACanvas?: ACanvas, Tag?: Tag) => void
-    active?: boolean
+    cb?: (ACanvas?: ACanvas, A?: A) => void
     angle?: number
     axis?: Vector
     t0?: number
@@ -38,18 +36,18 @@ interface fixedAnimType {
 }
 
 interface NewableFunction extends Function {
-    sphere?: ({ n, xr, yr, zr, m }: RingType) => number[][]
-    vcylinder?: ({ n, xr, yr, zr, m }: RingType) => number[][]
-    hcylinder?: ({ n, xr, yr, zr, m }: RingType) => number[][]
-    vring?: ({ n, xr, yr, zr, j }: RingType) => number[][]
-    hring?: ({ n, xr, yr, zr, j }: RingType) => number[][]
+    sphere?: ({ n, xr, yr, zr }: RingType) => number[][]
+    vcylinder?: ({ n, xr, yr, zr }: RingType) => number[][]
+    hcylinder?: ({ n, xr, yr, zr }: RingType) => number[][]
+    vring?: ({ n, xr, yr, zr }: RingType) => number[][]
+    hring?: ({ n, xr, yr, zr }: RingType) => number[][]
 }
 
-type HandleMouseEvent = (e: MouseEvent) => void
-type HandleTouchEvent = (e: TouchEvent) => void
-type HandleWheelEvent = (e: WheelEvent) => void
+export type EventType = (e: MouseEvent & TouchEvent & WheelEvent & Event) => void
 
-let { min, max, cos, sqrt, sin, ceil, abs, pow } = Math
+type HandleEvents = [string, EventType]
+
+let { min, max, cos, sqrt, sin, abs, pow } = Math
 
 export default class ACanvas {
 
@@ -57,13 +55,14 @@ export default class ACanvas {
     offsetY: number
     zoomMin: number
     zoomMax: number
-    frontSelect: string
+    frontSelect: boolean
     zoomStep: number
     wheelZoom: boolean
     dragThreshold: number
     textColour: string
-    textFont: string
+    textFontStyle: string;
     textHeight: number
+    textFontFamily: string;
     minBrightness: number
     maxBrightness: number
     stretchX: number
@@ -73,7 +72,7 @@ export default class ACanvas {
     z0: number
     lock: string
     dragControl: boolean
-    hideTags: boolean
+    hideElement: boolean
     interval: number
     reverse: boolean
     maxSpeed: number
@@ -108,14 +107,14 @@ export default class ACanvas {
     yaw: number
     pitch: number
     shapeArgs: RingType
-    taglist: Tag[]
+    aList: A[]
     listLength: number
     freezeDecel: boolean
     freezeActive: boolean
     activeCursor: string
     decel: number
-    fixedCallbackTag: Tag
-    fixedCallback: (ACanvas?: ACanvas, Tag?: Tag) => void | null
+    fixedCallbackTag: A
+    fixedCallback: (ACanvas?: ACanvas, A?: A) => void | null
     preFreeze: number[]
     drawn: number | boolean
     active: Outline | null
@@ -129,19 +128,16 @@ export default class ACanvas {
     } = {}
 
     static handlers: {
-        [key: string]: Array<[string, HandleMouseEvent | HandleTouchEvent | HandleWheelEvent]>
+        [key: string]: Array<HandleEvents>
     } = {}
 
     static options = option
-    static interval: number
 
     static nextFrame: (interval: number) => void = null
 
-    static start(id: TagCanvasType['id'], tagId: TagCanvasType['tagId'], opt: TagCanvasType['opt']) {
+    static start(id: ACanvasType['id'], AElement: ACanvasType['AElement'], opt: ACanvasType['opt']) {
         ACanvas.delete(id);
-        ACanvas.ac[id] = new ACanvas({ id, tagId, opt });
-        console.log(ACanvas.handlers);
-
+        ACanvas.ac[id] = new ACanvas({ id, AElement, opt });
     }
 
     static delete(id: string) {
@@ -156,10 +152,10 @@ export default class ACanvas {
         }
     }
 
-    static reload(id: string) { tccall('Load', id); };
-    static update(id: string) { tccall('Update', id); };
+    static reload(id: string) { acCall('Load', id); };
+    static updata(id: string) { acCall('Updata', id); };
 
-    static setSpeed(id: string, speed: number[]): boolean {
+    static setDirection(id: string, speed: number[]): boolean {
         if (IsObject(speed) && ACanvas.ac[id] &&
             !isNaN(speed[0]) && !isNaN(speed[1])) {
             ACanvas.ac[id].SetSpeed(speed);
@@ -177,31 +173,20 @@ export default class ACanvas {
     static rotateTag(id: string, options: RotateTagType): boolean {
         if (IsObject(options) && ACanvas.ac[id]) {
             if (isNaN(options.time)) options.time = 500;
-            let tag = ACanvas.ac[id].FindTag(options);
-            let { lat, lng, time, callback, active } = options
-            if (tag) {
-                ACanvas.ac[id].RotateTag({ tag, lat, lng, time, callback, active });
+            let a = ACanvas.ac[id].FindTag(options);
+            let { lat, lng, time, callback } = options
+            if (a) {
+                ACanvas.ac[id].RotateTag({ a, lat, lng, time, callback });
                 return true;
             }
         }
         return false
     }
 
-    static drawCanvasRAF(time: number) {
-        let ac = ACanvas.ac;
-        ACanvas.nextFrame(ACanvas.interval);
-        for (let i in ac) ac[i].Draw(time || TimeNow());
-    }
-
-    NextFrameRAF() {
-        requestAnimationFrame(ACanvas.drawCanvasRAF);
-    }
-
-    constructor(v: TagCanvasType) {
-        for (let i in ACanvas.options) {
+    constructor(v: ACanvasType) {
+        for (let i in ACanvas.options)
             this[i] = (v.opt && Defined(v.opt[i]) ? v.opt[i] :
-                (Defined(ACanvas[i]) ? ACanvas[i] : ACanvas.options[i]))
-        }
+                (Defined(ACanvas[i]) ? ACanvas[i] : ACanvas.options[i]));
         let c = <HTMLCanvasElement>document.getElementById(v.id)
         if (!c || !c.getContext || !c.getContext('2d').fillText) throw '请使用正确的canvas元素';
         this.shapeArgs = { n: 0, xr: 0, yr: 0, zr: 0 }
@@ -212,23 +197,22 @@ export default class ACanvas {
         this.z2 = this.z1 / this.zoom;
         this.radius = min(c.clientHeight, c.clientWidth) * 0.0075
         this.max_radius = 100;
-        this.textFont = this.textFont && FixFont(this.textFont);
         this.mx = this.my = -1;
         this.minBrightness = Clamp(this.minBrightness, 0, 1);
         this.maxBrightness = Clamp(this.maxBrightness, this.minBrightness, 1);
         this.lx = (this.lock + '').indexOf('x') + 1;
         this.ly = (this.lock + '').indexOf('y') + 1;
-        this.fixedAnim = { tag: null }
+        this.fixedAnim = { a: null }
         this.frozen = this.dx = this.dy = this.fixedAnim.type = this.touchState = 0;
         this.fixedAlpha = 1;
-        this.source = v.tagId || v.id;
+        this.source = v.AElement || v.id;
         this.transform = Identity();
         this.mx = this.my = -1;
         this.Animate = this.dragControl ? this.AnimateDrag : this.AnimatePosition;
         this.animTiming = this.Smooth
         this.Load();
 
-        if (v.tagId && this.hideTags) {
+        if (v.AElement && this.hideElement) {
             this.HideTags();
         }
 
@@ -261,8 +245,7 @@ export default class ACanvas {
 
         if (!this.started) {
             ACanvas.nextFrame = this.NextFrameRAF
-            ACanvas.interval = this.interval;
-            ACanvas.nextFrame(ACanvas.interval);
+            ACanvas.nextFrame(this.interval);
             this.started = 1;
         }
     }
@@ -283,17 +266,17 @@ export default class ACanvas {
         return tl;
     }
 
-    CreateTag(a: HTMLAnchorElement): Tag {
-        let t: Tag, text: string[], ts: TextSplitter, font: string, p = [0, 0, 0];
+    CreateTag(a: HTMLAnchorElement): A {
+        let t: A, text: string[], ts: TextSplitter, font: string, p = [0, 0, 0];
         ts = new TextSplitter(a);
         text = ts.Lines(a);
         if (!ts.Empty()) {
-            font = this.textFont || FixFont(GetProperty(a, 'font-family'));
+            font = GetProperty(a, 'font') == `16px "Microsoft YaHei"` ? `${this.textFontStyle} ${this.textHeight}px ${this.textFontFamily}` : GetProperty(a, 'font');
         } else {
             ts = null;
         }
         if (ts) {
-            t = new Tag({
+            t = new A({
                 ac: this, text, a, v: p, w: 2, h: this.textHeight,
                 col: this.textColour || GetProperty(a, 'color'), font
             });
@@ -304,10 +287,10 @@ export default class ACanvas {
 
     Draw(t?: number) {
         let cv = this.canvas, cw = cv.width, ch = cv.height, max_sc = 0,
-            tdelta = (t - this.time) * ACanvas.interval / 1000,
+            tdelta = (t - this.time) * this.interval / 1000,
             x = cw / 2 + this.offsetX, y = ch / 2 + this.offsetY, c = this.ctxt,
             active: Outline, a: boolean | Outline, i: number,
-            tl = this.taglist, l = tl.length, cursor = '', frontsel = this.frontSelect, fixed: boolean;
+            tl = this.aList, l = tl.length, cursor = '', frontsel = this.frontSelect, fixed: boolean;
         this.time = t;
         if (this.frozen && this.drawn)
             return this.Animate(cw, ch, tdelta);
@@ -317,26 +300,22 @@ export default class ACanvas {
             tl[i].Calc(this.transform, this.fixedAlpha);
         }
         tl = SortList(tl, function (a, b) { return b.z - a.z });
-        if (fixed && this.fixedAnim.active) {
-            active = this.fixedAnim.tag.UpdateActive(x, y);
-        } else {
-            this.active = null;
-            for (i = 0; i < l; ++i) {
-                a = this.mx >= 0 && this.my >= 0 && this.taglist[i].CheckActive(x, y);
-                if (a && a.sc > max_sc && (!frontsel || a.z <= 0)) {
-                    active = a;
-                    active.tag = this.taglist[i];
-                    max_sc = a.sc;
-                }
+        this.active = null;
+        for (i = 0; i < l; ++i) {
+            a = this.mx >= 0 && this.my >= 0 && this.aList[i].CheckActive(x, y);
+            if (a && a.sc > max_sc && (frontsel || a.z <= 0)) {
+                active = a;
+                active.a = this.aList[i];
+                max_sc = a.sc;
             }
-            this.active = active;
         }
+        this.active = active;
         c.clearRect(0, 0, cw, ch);
         for (i = 0; i < l; ++i) {
             if (!(false)) {
                 tl[i].Draw({ c, xoff: x, yoff: y });
             }
-            active && active.tag == tl[i] && false;
+            active && active.a == tl[i] && false;
         }
         if (this.freezeActive && active) {
             this.Freeze();
@@ -371,7 +350,7 @@ export default class ACanvas {
             t1 = TimeNow() - this.fixedAnim.t0;
             this.transform = this.fixedAnim.transform;
             if (t1 >= this.fixedAnim.t) {
-                this.fixedCallbackTag = this.fixedAnim.tag;
+                this.fixedCallbackTag = this.fixedAnim.a;
                 this.fixedCallback = this.fixedAnim.cb;
                 this.fixedAnim.type = this.yaw = this.pitch = 0;
             } else {
@@ -443,8 +422,8 @@ export default class ACanvas {
     }
 
     Clicked() {
-        if (this.active && this.active.tag)
-            this.active.tag.Clicked();
+        if (this.active && this.active.a)
+            this.active.a.Clicked();
     }
 
     Wheel(i: boolean) {
@@ -509,22 +488,22 @@ export default class ACanvas {
         this.pitch = i[1] * this.maxSpeed;
     }
 
-    FindTag(t: RotateTagType): Tag {
+    FindTag(t: RotateTagType): A {
         if (!Defined(t))
             return null;
         let srch: string, tid: string, i: number;
         if (Defined(t.id))
             srch = 'id', tid = t.id;
-        for (i = 0; i < this.taglist.length; ++i)
-            if (this.taglist[i].v.a[srch] == tid)
-                return this.taglist[i];
+        for (i = 0; i < this.aList.length; ++i)
+            if (this.aList[i].v.a[srch] == tid)
+                return this.aList[i];
     }
 
-    RotateTag({ tag, lat, lng, time, callback, active }: RotateTagType) {
-        let t = tag.Calc(this.transform, 1), v1 = new Vector({ x: t.x, y: t.y, z: t.z }),
-            v2 = MakeVector(lng, lat), angle = v1.angle(v2), u = v1.cross(v2).unit();
+    RotateTag({ a, lat, lng, time, callback }: RotateTagType) {
+        let t = a.Calc(this.transform, 1), v1 = new Vector({ x: t.x, y: t.y, z: t.z }),
+            v2 = MakeVector(lat, lng), angle = v1.angle(v2), u = v1.cross(v2).unit();
         if (angle == 0) {
-            this.fixedCallbackTag = tag;
+            this.fixedCallbackTag = a;
             this.fixedCallback = callback;
         } else {
             this.fixedAnim = {
@@ -533,15 +512,14 @@ export default class ACanvas {
                 t: time,
                 t0: TimeNow(),
                 cb: callback,
-                tag: tag,
-                active: active,
+                a: a,
                 type: 1
             };
         }
     }
 
     Load() {
-        let tl = this.GetTags(), taglist: Tag[] = [], shape: string, t: Tag,
+        let tl = this.GetTags(), aList: A[] = [], shape: string, t: A,
             shapeArgs: string[], xr: number, yr: number, zr: number, vl: Array<number[]>, i: number, tagmap: number[] = [],
             pfuncs = {
                 sphere: PointsOnSphere,
@@ -561,62 +539,36 @@ export default class ACanvas {
             this.max_radius = max(xr, max(yr, zr));
             for (i = 0; i < tl.length; ++i) {
                 t = this.CreateTag(tl[tagmap[i]] as HTMLAnchorElement);
-                if (t) taglist.push(t);
+                if (t) aList.push(t);
             }
             if (this.shapeArgs.n) {
-                this.shapeArgs.n = taglist.length;
+                this.shapeArgs.n = aList.length;
             } else {
                 shapeArgs = this.shape.toString().split(/[(),]/);
                 shape = shapeArgs.shift();
                 this.shape = pfuncs[shape] || pfuncs.sphere;
                 this.shapeArgs = {
-                    n: taglist.length,
+                    n: aList.length,
                     xr,
                     yr,
-                    zr,
-                    m: shape
+                    zr
                 }
             }
             if (typeof this.shape != 'string')
                 vl = this.shape({ ...this.shapeArgs });
-            this.listLength = taglist.length;
-            for (i = 0; i < taglist.length; ++i)
-                taglist[i].position = new Vector({ x: vl[i][0], y: vl[i][1], z: vl[i][2] });
+            this.listLength = aList.length;
+            for (i = 0; i < aList.length; ++i)
+                aList[i].position = new Vector({ x: vl[i][0], y: vl[i][1], z: vl[i][2] });
         }
-        this.taglist = taglist;
+        this.aList = aList;
     }
 
-    Update() {
-        let tl = this.GetTags(), newlist: Tag[] = [],
-            taglist = this.taglist,
-            added: string[] = [], removed: number[] = [], vl: Array<number[]>, ol: number, nl: number, i: number, j: number;
-        if (!this.shapeArgs) return this.Load();
-        if (tl.length) {
-            nl = this.listLength = tl.length;
-            ol = taglist.length;
-            for (i = 0; i < ol; ++i) {
-                newlist.push(taglist[i]);
-                removed.push(i);
-            }
-            for (i = 0, j = 0; i < ol; ++i) {
-                if (removed[j] == -1)
-                    removed.splice(j, 1);
-                else
-                    ++j;
-            }
-            j = newlist.length / (added.length + 1);
-            i = 0;
-            while (added.length) {
-                newlist.splice(ceil(++i * j), 0, this.CreateTag(tl[added.shift()] as HTMLAnchorElement));
-            }
-            this.shapeArgs[0] = nl = newlist.length;
-            if (typeof this.shape != 'string')
-                vl = this.shape.apply(this, this.shapeArgs);
+    Updata() {
+        this.Load()
+    }
 
-            for (i = 0; i < nl; ++i)
-                newlist[i].position = new Vector({ x: vl[i][0], y: vl[i][1], z: vl[i][2] });
-        }
-        this.taglist = newlist;
+    NextFrameRAF() {
+        requestAnimationFrame(drawCanvasRAF);
     }
 
     Smooth(t: number, t0: number): number { return 0.5 - cos(t0 * Math.PI / t) / 2; }
