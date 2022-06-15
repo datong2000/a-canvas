@@ -1,4 +1,4 @@
-# a-canvas--ts
+# a-canvas
 
 ---
 
@@ -6,7 +6,7 @@
 
 ```javascript
 
-  npm i a-canvas--ts
+  npm i a-canvas
   
   import ACanvas from 'ACanvas'
 
